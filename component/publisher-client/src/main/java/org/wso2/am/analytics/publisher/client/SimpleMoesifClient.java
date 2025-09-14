@@ -32,6 +32,7 @@ import org.wso2.am.analytics.publisher.reporter.MetricEventBuilder;
 import org.wso2.am.analytics.publisher.reporter.moesif.util.MoesifMicroserviceConstants;
 import org.wso2.am.analytics.publisher.util.Constants;
 import org.wso2.am.analytics.publisher.util.HttpStatusHelper;
+import org.wso2.am.analytics.publisher.util.LogSanitizer;
 
 import java.io.IOException;
 import java.time.Instant;
@@ -81,7 +82,7 @@ public class SimpleMoesifClient extends AbstractMoesifClient {
         if (builders == null || builders.isEmpty()) {
             return;
         }
-        List<EventModel> events = buidEventsfromBuilders(builders);
+        List<EventModel> events = buildEventsFromBuilders(builders);
 
         APICallBack<HttpResponse> callBack = createMoesifCallback(() -> doRetry(builders),
                 "Batch of " + builders.size() + " events");
