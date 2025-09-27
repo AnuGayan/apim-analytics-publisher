@@ -1,5 +1,5 @@
-/*
- * Copyright (c) 2025, WSO2 LLC. (http://www.wso2.org) All Rights Reserved.
+/**
+ * Copyright (c) 2025, WSO2 LLC. (https://www.wso2.com).
  *
  * WSO2 LLC. licenses this file to you under the Apache License,
  * Version 2.0 (the "License"); you may not use this file except
@@ -104,7 +104,7 @@ public class SimpleMoesifClient extends AbstractMoesifClient {
         EventModel eventModel = new EventModel();
         String modifiedUserName;
 
-        Map<String, String> metadata = new HashMap<>();
+        Map<String, Object> metadata = new HashMap<>();
         populateMetadata(data, metadata);
 
         if (!data.containsKey(Constants.ERROR_CODE)) {
@@ -132,7 +132,7 @@ public class SimpleMoesifClient extends AbstractMoesifClient {
                     .ipAddress(userIP).headers(reqHeaders).build();
 
             eventRsp = new EventResponseBuilder().time(Date.from(responseTimestamp))
-                    .status((int) data.get(Constants.TARGET_RESPONSE_CODE)).headers(rspHeaders).build();
+                    .status((int) data.get(Constants.PROXY_RESPONSE_CODE)).headers(rspHeaders).build();
 
             if (userName.contains("@carbon.super")) {
                 modifiedUserName = userName.replace("@carbon.super", "");
@@ -175,17 +175,24 @@ public class SimpleMoesifClient extends AbstractMoesifClient {
      *@param data     The source data map containing various analytics fields and values.
      *@param metadata The target metadata map to be populated with filtered analytics data.
      **/
-    private void populateMetadata(Map<String, Object> data, Map<String, String> metadata) {
+    private void populateMetadata(Map<String, Object> data, Map<String, Object> metadata) {
         Set<String> requiredKeys = new HashSet<>(Arrays.asList(
                 Constants.API_ID, Constants.API_METHOD, Constants.API_NAME,
                 Constants.API_TYPE, Constants.APPLICATION_ID, Constants.APPLICATION_NAME, Constants.APPLICATION_OWNER,
                 Constants.BACKEND_LATENCY, Constants.GATEWAY_TYPE, Constants.KEY_TYPE, Constants.EVENT_TYPE,
-                Constants.DESTINATION, Constants.ERROR_CODE, Constants.ERROR_MESSAGE, Constants.ERROR_TYPE
+                Constants.API_CREATION, Constants.API_CREATOR_TENANT_DOMAIN, Constants.API_VERSION,
+                Constants.CORRELATION_ID, Constants.RESPONSE_CACHE_HIT, Constants.USER_NAME,
+                Constants.RESPONSE_MEDIATION_LATENCY, Constants.DESTINATION, Constants.ERROR_CODE,
+                Constants.ERROR_MESSAGE, Constants.ERROR_TYPE, Constants.TARGET_RESPONSE_CODE,
+                Constants.REQUEST_MEDIATION_LATENCY, Constants.API_RESOURCE_TEMPLATE
         ));
 
         data.entrySet().stream().filter(entry -> requiredKeys.contains(entry.getKey()))
                 .filter(entry -> entry.getValue() != null)
                 .forEach(entry -> metadata.put(entry.getKey(), String.valueOf(entry.getValue())));
+
+        // Add AI metadata and token usage if present
+        populateAIInfo(data, metadata);
 
     }
 
@@ -251,13 +258,13 @@ public class SimpleMoesifClient extends AbstractMoesifClient {
                 } else if (HttpStatusHelper.shouldRetry(statusCode)) {
                     log.error("{} publishing failed. Moesif returned {}. Response: {}. Retrying...",
                             operationType,
-                            String.valueOf(statusCode).replaceAll("[\r\n]", ""),
+                            LogSanitizer.sanitize(String.valueOf(statusCode)),
                             response.getRawBody());
                     retryAction.run();
                 } else {
                     log.error("{} publishing failed. Moesif returned {}. Response: {}. No retry.",
                             operationType,
-                            String.valueOf(statusCode).replaceAll("[\r\n]", ""),
+                            LogSanitizer.sanitize(String.valueOf(statusCode)),
                             response.getRawBody());
                 }
             }
@@ -273,19 +280,46 @@ public class SimpleMoesifClient extends AbstractMoesifClient {
                 if (HttpStatusHelper.shouldRetry(statusCode)) {
                     log.error("{} publishing failed. Moesif returned {}. Retrying...",
                             operationType,
-                            String.valueOf(statusCode).replaceAll("[\r\n]", ""));
+                            LogSanitizer.sanitize(String.valueOf(statusCode)));
                     retryAction.run();
                 } else if (HttpStatusHelper.isClientError(statusCode)) {
                     log.error("{} publishing failed. Moesif returned {} due to error: {}",
                             operationType,
                             statusCode,
-                            errorMessage.replaceAll("[\r\n]", ""));
+                            LogSanitizer.sanitize(errorMessage));
                 } else {
                     log.error("{} publishing failed due to error: {}",
                             operationType,
-                            errorMessage.replaceAll("[\r\n]", ""));
+                            LogSanitizer.sanitize(errorMessage));
                 }
             }
         };
+    }
+
+    /**
+     * Populates AI-related metadata fields in the provided metadata map if present in the source data.
+     *
+     * This method checks for AI metadata and token usage within the properties of the source data map,
+     * and adds them to the metadata map if available.
+     *
+     * @param data     The source data map containing analytics fields and properties.
+     * @param metadata The target metadata map to be populated with AI-related information.
+     */
+    private void populateAIInfo(Map<String, Object> data, Map<String, Object> metadata) {
+        if (data.get(Constants.PROPERTIES) != null) {
+            Map<String, Object> properties = (Map<String, Object>) data.get(Constants.PROPERTIES);
+            if (properties.containsKey(Constants.AI_METADATA)) {
+                metadata.put(Constants.AI_METADATA, properties.get(Constants.AI_METADATA));
+            }
+            if (properties.containsKey(Constants.AI_TOKEN_USAGE)) {
+                metadata.put(Constants.AI_TOKEN_USAGE, properties.get(Constants.AI_TOKEN_USAGE));
+            }
+            if (properties.containsKey(Constants.IS_EGRESS)) {
+                metadata.put(Constants.IS_EGRESS, properties.get(Constants.IS_EGRESS));
+            }
+            if (properties.containsKey(Constants.SUBTYPE)) {
+                metadata.put(Constants.SUBTYPE, properties.get(Constants.SUBTYPE));
+            }
+        }
     }
 }
