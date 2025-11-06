@@ -186,12 +186,11 @@ public class SimpleMoesifClient extends AbstractMoesifClient {
                 Constants.RESPONSE_MEDIATION_LATENCY, Constants.DESTINATION, Constants.ERROR_CODE,
                 Constants.ERROR_MESSAGE, Constants.ERROR_TYPE, Constants.TARGET_RESPONSE_CODE,
                 Constants.REQUEST_MEDIATION_LATENCY, Constants.API_RESOURCE_TEMPLATE, Constants.RESPONSE_LATENCY
-
         ));
 
         data.entrySet().stream().filter(entry -> requiredKeys.contains(entry.getKey()))
                 .filter(entry -> entry.getValue() != null)
-                .forEach(entry -> metadata.put(entry.getKey(),entry.getValue()));
+                .forEach(entry -> metadata.put(entry.getKey(), entry.getValue()));
 
         // Add AI metadata and token usage if present
         populateAIInfo(data, metadata);
